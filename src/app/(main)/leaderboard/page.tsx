@@ -7,10 +7,12 @@ export default async function LeaderboardPage() {
   const { data: sessions } = await supabase
     .from('sessions')
     .select('id, year, season, chip_rate, baht_rate, played_at')
+    .range(0, 999)
 
   const { data: results } = await supabase
     .from('session_results')
     .select('session_id, user_id, buy_in_chips, cash_out_chips, profiles(display_name)')
+    .range(0, 9999)
 
   return <LeaderboardClient sessions={sessions ?? []} results={results ?? []} />
 }

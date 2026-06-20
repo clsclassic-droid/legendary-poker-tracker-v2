@@ -28,9 +28,11 @@ export default function RacePage() {
       .from('sessions')
       .select('id, session_number, played_at, chip_rate, baht_rate')
       .order('played_at', { ascending: true })
+      .range(0, 999)
     const { data: r } = await supabase
       .from('session_results')
       .select('session_id, user_id, buy_in_chips, cash_out_chips, profiles(display_name)')
+      .range(0, 9999)
     setSessions(s ?? [])
     setResults(r ?? [])
   }

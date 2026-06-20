@@ -2,16 +2,32 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Users } from 'lucide-react'
 
+async function fetchAllResults(supabase: any) {
+  const pageSize = 1000
+  let page = 0
+  let allResults: any[] = []
+  while (true) {
+    const { data } = await supabase
+      .from('session_results')
+      .select('session_id, user_id, buy_in_chips, cash_out_chips, profiles(display_name)')
+      .range(page * pageSize, (page + 1) * pageSize - 1)
+    if (!data || data.length === 0) break
+    allResults = [...allResults, ...data]
+    if (data.length < pageSize) break
+    page++
+  }
+  return allResults
+}
+
 export default async function PlayersPage() {
   const supabase = await createClient()
 
   const { data: sessions } = await supabase
     .from('sessions')
     .select('id, chip_rate, baht_rate')
+    .range(0, 999)
 
-  const { data: results } = await supabase
-    .from('session_results')
-    .select('session_id, user_id, buy_in_chips, cash_out_chips, profiles(display_name)')
+  const results = await fetchAllResults(supabase)
 
   // session rate map
   const sessionRateMap = new Map<string, { chipRate: number; bahtRate: number }>()
@@ -19,11 +35,9 @@ export default async function PlayersPage() {
     sessionRateMap.set(s.id, { chipRate: s.chip_rate ?? 1000, bahtRate: s.baht_rate ?? 200 })
   }
 
-  const sessionSet = new Set((sessions ?? []).map(s => s.id))
-
-  // คำนวณ profit ต่อ session แล้วสะสม
+  // คำนวณ profit ต่อ session
   const map = new Map<string, { name: string; sessions: number; profitBaht: number; wins: number; losses: number }>()
-  for (const r of (results ?? []).filter(r => sessionSet.has(r.session_id))) {
+  for (const r of results) {
     const name = r.profiles?.display_name ?? 'Unknown'
     const { chipRate, bahtRate } = sessionRateMap.get(r.session_id) ?? { chipRate: 1000, bahtRate: 200 }
     const profitChips = r.cash_out_chips - r.buy_in_chips
@@ -40,7 +54,7 @@ export default async function PlayersPage() {
 
   // medals per session
   const sessionResults = new Map<string, { userId: string; profitChips: number }[]>()
-  for (const r of (results ?? [])) {
+  for (const r of results) {
     const arr = sessionResults.get(r.session_id) ?? []
     arr.push({ userId: r.user_id, profitChips: r.cash_out_chips - r.buy_in_chips })
     sessionResults.set(r.session_id, arr)
